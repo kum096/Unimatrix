@@ -4,14 +4,15 @@ import LoginScreen from "../screens/LoginScreen";
 import HomeScreen from "../screens/HomeScreen";
 import ChatScreen from "../screens/ChatScreen";
 import DocumentsScreen from "../screens/DocumentsScreen";
+import { RootStackParamList } from "../types/app";
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown:false
+        headerShown: false,
       }}
     >
       <Stack.Screen

@@ -1,105 +1,163 @@
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useEffect, useState } from "react";
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
+  View,
 } from "react-native";
-
-import { useState } from "react";
-
 import { api } from "../services/api";
-import { saveUser } from "../store/userStore";
+import { loadServerUrl, saveServerUrl, saveUser } from "../store/userStore";
 import { COLORS } from "../theme/colors";
+import { RootStackParamList, User } from "../types/app";
 
-export default function LoginScreen({navigation}:any) {
+type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
-  const [name,setName] = useState("");
-  const [studentId,setStudentId] = useState("");
+export default function LoginScreen({ navigation }: Props) {
+  const [name, setName] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [serverUrl, setServerUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadServerUrl().then(setServerUrl).catch(() => undefined);
+  }, []);
 
   const login = async () => {
+    const cleanName = name.trim();
+    const cleanStudentId = studentId.trim();
 
-    const res = await api.post(
-      "/auth/login",
-      {
-        name,
-        studentId,
-      }
-    );
+    if (!cleanName || !cleanStudentId || !serverUrl.trim()) {
+      Alert.alert("Missing details", "Enter your name, student ID, and server URL.");
+      return;
+    }
 
-    await saveUser(res.data.user);
+    try {
+      setLoading(true);
+      await saveServerUrl(serverUrl);
 
-    navigation.replace("Home");
+      const res = await api.post<{ user: User }>("/auth/login", {
+        name: cleanName,
+        studentId: cleanStudentId,
+      });
+
+      await saveUser(res.data.user);
+      navigation.replace("Home");
+    } catch {
+      Alert.alert(
+        "Connection failed",
+        "Start the backend and confirm your phone is on the same Wi-Fi as the laptop.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.container}
+    >
+      <View style={styles.header}>
+        <Text style={styles.brand}>UniMatrix</Text>
+        <Text style={styles.subtitle}>Offline class chat and PDF sharing.</Text>
+      </View>
 
-      <Text style={styles.title}>
-        UniMatrix
-      </Text>
+      <View style={styles.form}>
+        <TextInput
+          autoCapitalize="words"
+          placeholder="Name"
+          placeholderTextColor={COLORS.muted}
+          style={styles.input}
+          value={name}
+          onChangeText={setName}
+        />
 
-      <TextInput
-        placeholder="Name"
-        placeholderTextColor="#888"
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-      />
+        <TextInput
+          autoCapitalize="characters"
+          placeholder="Student ID"
+          placeholderTextColor={COLORS.muted}
+          style={styles.input}
+          value={studentId}
+          onChangeText={setStudentId}
+        />
 
-      <TextInput
-        placeholder="Student ID"
-        placeholderTextColor="#888"
-        style={styles.input}
-        value={studentId}
-        onChangeText={setStudentId}
-      />
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+          placeholder="Backend URL, e.g. http://192.168.43.120:3000"
+          placeholderTextColor={COLORS.muted}
+          style={styles.input}
+          value={serverUrl}
+          onChangeText={setServerUrl}
+        />
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={login}
-      >
-        <Text style={styles.buttonText}>
-          Continue
-        </Text>
-      </TouchableOpacity>
-
-    </View>
+        <TouchableOpacity
+          disabled={loading}
+          style={[styles.button, loading && styles.buttonDisabled]}
+          onPress={login}
+        >
+          {loading ? (
+            <ActivityIndicator color={COLORS.text} />
+          ) : (
+            <Text style={styles.buttonText}>Continue</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{
-    flex:1,
-    backgroundColor:COLORS.background,
-    justifyContent:"center",
-    padding:24,
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    justifyContent: "center",
+    padding: 24,
   },
-
-  title:{
-    color:"white",
-    fontSize:34,
-    fontWeight:"700",
-    marginBottom:40,
+  header: {
+    marginBottom: 32,
   },
-
-  input:{
-    backgroundColor:COLORS.surface,
-    color:"white",
-    padding:16,
-    borderRadius:12,
-    marginBottom:15,
+  brand: {
+    color: COLORS.text,
+    fontSize: 38,
+    fontWeight: "800",
   },
-
-  button:{
-    backgroundColor:COLORS.primary,
-    padding:16,
-    borderRadius:12,
+  subtitle: {
+    color: COLORS.muted,
+    fontSize: 16,
+    marginTop: 8,
   },
-
-  buttonText:{
-    color:"white",
-    textAlign:"center",
-    fontWeight:"700",
+  form: {
+    gap: 14,
+  },
+  input: {
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    color: COLORS.text,
+    padding: 16,
+  },
+  button: {
+    alignItems: "center",
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    minHeight: 54,
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  buttonDisabled: {
+    opacity: 0.65,
+  },
+  buttonText: {
+    color: COLORS.text,
+    fontWeight: "800",
   },
 });
